@@ -32,7 +32,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
     this.securityGroup = new ec2.SecurityGroup(this, 'VlessSecurityGroup', {
       vpc,
       securityGroupName: 'vless-proxy-sg',
-      description: 'Security group for VLESS proxy server – allows inbound HTTP (port 80)',
+      description: 'Security group for VLESS proxy server - allows inbound HTTP (port 80)',
       allowAllOutbound: true,
     });
 
