@@ -47,6 +47,14 @@ npx cdk deploy
 
 After deployment, note the `InstancePublicIp` output – you will need it for the client config.
 
+The `VlessLink` output contains the **ready-to-use VLESS URI** you can paste directly into any VLESS-compatible client (e.g. v2rayN, v2rayNG, Shadowrocket):
+
+```
+vless://<UUID>@<PUBLIC_IP>:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback#vless-proxy
+```
+
+> The UUID is generated once at `cdk synth` time and embedded in both the server config and the `VlessLink` output, so no manual UUID lookup is needed.
+
 ---
 
 ## Server configuration
@@ -67,7 +75,9 @@ Copy [`config/client-config.json`](config/client-config.json) to your local clie
 | Placeholder | Replace with |
 |---|---|
 | `YOUR_AWS_EC2_PUBLIC_IP` | The `InstancePublicIp` CDK output |
-| `YOUR_UUID_HERE` | The UUID printed in the EC2 system log on first boot |
+| `YOUR_UUID_HERE` | The `VlessUuid` CDK output (also embedded in `VlessLink`) |
+
+Or simply use the **`VlessLink`** output directly – it already contains both the UUID and the public IP.
 
 ---
 

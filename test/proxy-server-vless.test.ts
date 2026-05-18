@@ -55,5 +55,7 @@ describe('ProxyServerVlessStack', () => {
     template.hasOutput('InstancePublicIp', {});
     template.hasOutput('SecurityGroupId', {});
     template.hasOutput('VlessServerPort', { Value: '80' });
+    template.hasOutput('VlessUuid', {});
+    template.hasOutput('VlessLink', {});
   });
 });

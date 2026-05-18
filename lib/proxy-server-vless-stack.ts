@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib/core';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
@@ -10,6 +11,9 @@ export class ProxyServerVlessStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Generate the VLESS UUID at synth time so it is known before deployment
+    const uuid = crypto.randomUUID();
 
     // ---------------------------------------------------------------------------
     // VPC – single public subnet, one AZ to minimise cost
@@ -57,8 +61,8 @@ export class ProxyServerVlessStack extends cdk.Stack {
     userData.addCommands(
       // Install f2ray using the official script
       'bash <(curl -L https://raw.githubusercontent.com/v2fly/f2ray-core/master/release/install-release.sh)',
-      // Generate a UUID and write the server config
-      'UUID=$(uuidgen)',
+      // Use the UUID that was generated at CDK synth time
+      `UUID="${uuid}"`,
       'mkdir -p /usr/local/etc/f2ray /var/log/f2ray',
       'cat > /usr/local/etc/f2ray/config.json <<EOCFG',
       '{',
@@ -97,7 +101,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '}',
       'EOCFG',
       // Print the UUID so it is visible in the EC2 instance system log
-      'echo "VLESS UUID: $UUID"',
+      `echo "VLESS UUID: ${uuid}"`,
       // Enable and start the f2ray service
       'systemctl enable f2ray',
       'systemctl restart f2ray',
@@ -135,6 +139,16 @@ export class ProxyServerVlessStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VlessServerPort', {
       value: '80',
       description: 'Port on which the VLESS server listens',
+    });
+
+    new cdk.CfnOutput(this, 'VlessUuid', {
+      value: uuid,
+      description: 'UUID used to authenticate VLESS clients',
+    });
+
+    new cdk.CfnOutput(this, 'VlessLink', {
+      value: `vless://${uuid}@${this.instance.instancePublicIp}:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback#vless-proxy`,
+      description: 'Ready-to-use VLESS client link – paste into your VLESS client',
     });
   }
 }
