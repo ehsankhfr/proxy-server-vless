@@ -18,7 +18,7 @@ describe('ProxyServerVlessStack', () => {
 
   test('Security group is created with inbound rule on port 80', () => {
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
-      GroupDescription: 'Security group for VLESS proxy server – allows inbound HTTP (port 80)',
+      GroupDescription: 'Security group for VLESS proxy server - allows inbound HTTP (port 80)',
       SecurityGroupIngress: Match.arrayWith([
         Match.objectLike({
           IpProtocol: 'tcp',
