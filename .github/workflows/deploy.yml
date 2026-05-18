@@ -42,9 +42,11 @@ jobs:
           # in the AWS_ROLE_ARN repository secret.
           role-to-assume: arn:aws:iam::702899346695:role/GitHubActions-ehsankhfr-proxy-server-vless
           aws-region: eu-west-1
+          role-session-name: GitHubActions
+          output-env-credentials: true
 
       - name: Bootstrap CDK
-        run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/eu-west-1
+        run: npx cdk bootstrap aws://702899346695/eu-west-1
 
       - name: Deploy stack
         run: npx cdk deploy ProxyServerVlessStack --require-approval never
