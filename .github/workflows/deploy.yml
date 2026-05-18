@@ -40,7 +40,7 @@ jobs:
           # Preferred: OIDC role-based auth (no long-lived secrets).
           # Create an IAM role with a GitHub OIDC trust policy and store its ARN
           # in the AWS_ROLE_ARN repository secret.
-          role-to-assume: arn:aws:iam::702899346695:role/GitHubActions-ehsankhfr-java-tutorial-with-ttd
+          role-to-assume: arn:aws:iam::702899346695:role/GitHubActions-ehsankhfr-proxy-server-vless
           aws-region: eu-west-1
 
       - name: Bootstrap CDK
