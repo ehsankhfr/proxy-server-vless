@@ -77,7 +77,11 @@ Copy [`config/client-config.json`](config/client-config.json) to your local clie
 | `YOUR_AWS_EC2_PUBLIC_IP` | The `InstancePublicIp` CDK output |
 | `YOUR_STABLE_UUID_FROM_CDK_OUTPUT` | The `VlessUuid` CDK output (also embedded in `VlessLink`) |
 
-`YOUR_STABLE_UUID_FROM_CDK_OUTPUT` is only a placeholder in the sample JSON file. CDK does not rewrite `config/client-config.json` on disk; after `cdk deploy`, copy the `VlessUuid` output into that field, or skip the manual edit and use **`VlessLink`** directly since it already contains both the UUID and the public IP.
+`YOUR_STABLE_UUID_FROM_CDK_OUTPUT` is only a placeholder in the sample JSON file:
+
+- CDK does not rewrite `config/client-config.json` on disk.
+- After `cdk deploy`, copy the `VlessUuid` output into that field.
+- Or use **`VlessLink`** directly, since it already contains both the UUID and the public IP.
 
 ---
 
