@@ -31,7 +31,10 @@
         "network": "ws",
         "security": "none",
         "wsSettings": {
-          "path": "/vless-fallback"
+          "path": "/vless-fallback",
+          "headers": {
+            "Host": "YOUR_AWS_EC2_PUBLIC_IP"
+          }
         }
       }
     }
