@@ -17,6 +17,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       .createHash('sha1')
       .update(id + namespace)
       .digest('hex')
+      .slice(0, 32) // SHA1 = 40 chars; UUID needs exactly 32 hex chars
       .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 
     // ---------------------------------------------------------------------------
