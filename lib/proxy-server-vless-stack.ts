@@ -14,10 +14,9 @@ export class ProxyServerVlessStack extends cdk.Stack {
     // OPTION B: Replace this with a hardcoded string if you want absolute control: const uuid = "your-fixed-uuid-here";
     const namespace = '6a131b74-0f2d-4bfb-b6d8-dc2f4044ee78'; // Arbitrary stable namespace
     const uuid = crypto
-      .createHash('sha1')
+      .createHash('md5') // MD5 produces exactly 32 hex chars (128 bits), matching UUID size
       .update(id + namespace)
       .digest('hex')
-      .slice(0, 32) // SHA1 = 40 chars; UUID needs exactly 32 hex chars
       .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 
     // ---------------------------------------------------------------------------
