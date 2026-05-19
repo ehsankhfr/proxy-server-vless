@@ -66,7 +66,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '  local max_attempts=5',
       '  local wait_seconds=6',
       '  while true; do',
-      '    "$@" && break',
+      '    if "$@"; then break; fi',
       '    attempts=$((attempts + 1))',
       '    if [ "$attempts" -ge "$max_attempts" ]; then',
       '      echo "Command failed after $max_attempts attempts: $*"',
