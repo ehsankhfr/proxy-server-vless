@@ -61,9 +61,9 @@ vless://<UUID>@<PUBLIC_IP>:80?encryption=none&security=none&type=ws&path=%2Fvles
 
 The server config template is at [`config/server-config.json`](config/server-config.json). During deployment, the EC2 user-data script automatically:
 
-1. Installs f2ray via the official install script.
+1. Installs v2ray via the official install script.
 2. Injects the stable UUID that CDK already computed for this stack.
-3. Writes `/usr/local/etc/f2ray/config.json`.
+3. Writes `/usr/local/etc/v2ray/config.json`.
 4. Enables and starts the `f2ray` systemd service.
 
 ---
