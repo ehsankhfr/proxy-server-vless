@@ -61,7 +61,20 @@ export class ProxyServerVlessStack extends cdk.Stack {
     userData.addCommands(
       // Fail fast and make bootstrap robust against transient network/package issues.
       'set -euxo pipefail',
-      'retry() { local attempts=0; local max_attempts=5; local wait_seconds=6; while true; do "$@" && break; attempts=$((attempts+1)); if [ "$attempts" -ge "$max_attempts" ]; then echo "Command failed after ${max_attempts} attempts: $*"; return 1; fi; sleep "$wait_seconds"; done; }',
+      'retry() {',
+      '  local attempts=0',
+      '  local max_attempts=5',
+      '  local wait_seconds=6',
+      '  while true; do',
+      '    "$@" && break',
+      '    attempts=$((attempts + 1))',
+      '    if [ "$attempts" -ge "$max_attempts" ]; then',
+      '      echo "Command failed after ${max_attempts} attempts: $*"',
+      '      return 1',
+      '    fi',
+      '    sleep "$wait_seconds"',
+      '  done',
+      '}',
       // Install v2ray using the official fhs-install-v2ray script
       'retry curl -fLsS https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh -o /tmp/install-v2ray.sh',
       'retry bash /tmp/install-v2ray.sh',
@@ -121,7 +134,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       // The 24 h value balances keeping tunnels alive against the risk of
       // accumulating idle connections; adjust downward if resource usage is a concern.
       // ---------------------------------------------------------------------------
-      'retry dnf install -y nginx || { echo "nginx install failed"; exit 1; }',
+      'retry dnf install -y nginx',
       // Write a minimal main config that delegates server blocks to conf.d only,
       // preventing the built-in default server from competing on port 80.
       "cat > /etc/nginx/nginx.conf << 'EONGINXMAIN'",
