@@ -93,6 +93,38 @@ npm test
 
 ---
 
+## Local integration test (Docker – no AWS required)
+
+Validates the full runtime stack (v2ray + nginx) locally using Docker Compose,
+without deploying anything to AWS.
+
+**Prerequisites:** Docker with the Compose plugin (v2).
+
+```bash
+npm run test:integration
+```
+
+What it does:
+
+1. Starts six containers on an isolated Docker network:
+   - `v2ray-server` – VLESS inbound on port 10000
+   - `nginx-proxy` – mirrors the EC2 nginx setup; exposed on `localhost:18080`
+   - `target` – minimal HTTP server only reachable via the v2ray outbound
+   - `v2ray-client` – correct UUID + path; SOCKS5 on `localhost:11080`
+   - `wrong-uuid-client` – bad UUID; SOCKS5 on `localhost:11081`
+   - `wrong-path-client` – bad WS path; SOCKS5 on `localhost:11082`
+2. Runs five assertions:
+   | # | What is tested | Expected |
+   |---|---|---|
+   | 1 | `GET /` on nginx-proxy | returns `OK` |
+   | 2 | WebSocket upgrade on `/vless-fallback` vs plain path | WS is proxied to v2ray; other paths served by nginx |
+   | 3 | Traffic through correct client → VLESS tunnel → `target` | `TARGET OK` returned |
+   | 4 | Traffic through wrong-UUID client | request fails |
+   | 5 | Traffic through wrong-path client | request fails |
+3. Tears down all containers.
+
+---
+
 ## Destroy
 
 ```bash

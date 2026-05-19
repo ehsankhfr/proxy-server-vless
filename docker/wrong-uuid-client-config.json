@@ -1,0 +1,46 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "port": 1080,
+      "listen": "0.0.0.0",
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "nginx-proxy",
+            "port": 80,
+            "users": [
+              {
+                "id": "deadbeef-dead-beef-dead-beefdeadbeef",
+                "encryption": "none",
+                "level": 0
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/vless-fallback",
+          "headers": {
+            "Host": "nginx-proxy"
+          }
+        }
+      }
+    }
+  ]
+}
