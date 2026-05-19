@@ -13,7 +13,11 @@ export class ProxyServerVlessStack extends cdk.Stack {
     // OPTION A: Generate a unique UUID linked to this stack instance name so it doesn't change on every deploy.
     // OPTION B: Replace this with a hardcoded string if you want absolute control: const uuid = "your-fixed-uuid-here";
     const namespace = '6a131b74-0f2d-4bfb-b6d8-dc2f4044ee78'; // Arbitrary stable namespace
-    const uuid = crypto.createHash('sha1').update(id + namespace).digest('hex').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+    const uuid = crypto
+      .createHash('sha1')
+      .update(id + namespace)
+      .digest('hex')
+      .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 
     // ---------------------------------------------------------------------------
     // VPC – Single public subnet, one AZ to minimize cost
@@ -57,8 +61,6 @@ export class ProxyServerVlessStack extends cdk.Stack {
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       'set -euxo pipefail',
-      
-      // Robust retry logic for network-dependent commands
       'retry() {',
       '  local attempts=0',
       '  local max_attempts=5',
@@ -73,113 +75,12 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '    sleep "$wait_seconds"',
       '  done',
       '}',
-
-      // 1. Install prerequisites and Nginx first to ensure package repositories are ready
       'retry dnf update -y',
       'retry dnf install -y nginx curl tar jq',
-
-      // 2. Install v2ray using the official fhs-install-v2ray script
       'retry curl -fLsS https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh -o /tmp/install-v2ray.sh',
       'retry bash /tmp/install-v2ray.sh',
-
       `UUID="${uuid}"`,
       'mkdir -p /usr/local/etc/v2ray /var/log/v2ray',
-
-      // 3. Write Server v2ray configuration
-      'cat > /usr/local/etc/v2ray/config.json <<EOCFG',
-      '{',
-      '  "log": {',
-      '    "access": "/var/log/v2ray/access.log",',
-      '    "error": "/var/log/v2ray/error.log",',
-      '    "loglevel": "warning"',
-      '  },',
-      '  "inbounds": [',
-      {
-        "port": 10000,
-        "listen": "127.0.0.1",
-        "protocol": "vless",
-        "settings": {
-          "clients": [
-            {
-              "id": "'"$UUID"'",
-              "level": 0
-            }
-          ],
-          "decryption": "none"
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/vless-fallback"
-          }
-        }
-      },
-      '  ],',
-      '  "outbounds": [',
-      '    {',
-      '      "protocol": "freedom",',
-      '      "settings": {}',
-      '    }',
-      '  ]',
-      '}',
-      'EOCFG',
-
-      'systemctl enable v2ray',
-      'systemctl restart v2ray',
-
-      // 4. Write clean global Nginx configuration
-      "cat > /etc/nginx/nginx.
-      vpc,
-      securityGroupName: 'vless-proxy-sg',
-      description: 'Security group for VLESS proxy server - allows inbound HTTP (port 80)',
-      allowAllOutbound: true,
-    });
-
-    // Inbound rule: Allow all IPv4 traffic on port 80 (plain VLESS over WebSocket)
-    this.securityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(80),
-      'Allow inbound VLESS plain traffic on port 80',
-    );
-
-    // Also allow SSH so you can manage the instance
-    this.securityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(22),
-      'Allow inbound SSH',
-    );
-
-    // ---------------------------------------------------------------------------
-    // User-data script – installs v2ray behind nginx and writes the server config
-    // ---------------------------------------------------------------------------
-    const userData = ec2.UserData.forLinux();
-    userData.addCommands(
-      // Fail fast and make bootstrap robust against transient network/package issues.
-      'set -euxo pipefail',
-      'retry() {',
-      '  local attempts=0',
-      '  local max_attempts=5',
-      '  # Short backoff keeps bootstrap fast while handling transient network failures.',
-      '  local wait_seconds=6',
-      '  while true; do',
-      '    "$@" && break',
-      '    attempts=$((attempts + 1))',
-      '    if [ "$attempts" -ge "$max_attempts" ]; then',
-      '      echo "Command failed after $max_attempts attempts: $*"',
-      '      return 1',
-      '    fi',
-      '    sleep "$wait_seconds"',
-      '  done',
-      '}',
-      // Install v2ray using the official fhs-install-v2ray script
-      'retry curl -fLsS https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh -o /tmp/install-v2ray.sh',
-      'retry bash /tmp/install-v2ray.sh',
-      // Use the UUID that was generated at CDK synth time
-      `UUID="${uuid}"`,
-      'mkdir -p /usr/local/etc/v2ray /var/log/v2ray',
-      // v2ray listens on localhost:10000 so that nginx is the only public-facing
-      // listener on port 80; this avoids direct exposure and allows nginx to set
-      // proper WebSocket timeouts (proxy_read_timeout) to prevent 408 errors.
       'cat > /usr/local/etc/v2ray/config.json <<EOCFG',
       '{',
       '  "log": {',
@@ -195,7 +96,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '      "settings": {',
       '        "clients": [',
       '          {',
-      `            "id": "$UUID",`,
+      `            "id": "${uuid}",`,
       '            "level": 0',
       '          }',
       '        ],',
@@ -217,22 +118,8 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '  ]',
       '}',
       'EOCFG',
-      // Print the UUID so it is visible in the EC2 instance system log
-      `echo "VLESS UUID: ${uuid}"`,
-      // Enable and start the v2ray service
       'systemctl enable v2ray',
       'systemctl restart v2ray || { journalctl -u v2ray -n 50; exit 1; }',
-      // ---------------------------------------------------------------------------
-      // Install nginx as a WebSocket reverse proxy in front of v2ray.
-      // nginx handles the HTTP upgrade and sets proxy_read_timeout to 24 h so that
-      // long-lived WebSocket tunnels are never timed out by the server (eliminates
-      // the HTTP 408 Request Timeout that occurs when no timeout is configured).
-      // The 24 h value balances keeping tunnels alive against the risk of
-      // accumulating idle connections; adjust downward if resource usage is a concern.
-      // ---------------------------------------------------------------------------
-      'retry dnf install -y nginx',
-      // Write a minimal main config that delegates server blocks to conf.d only,
-      // preventing the built-in default server from competing on port 80.
       "cat > /etc/nginx/nginx.conf << 'EONGINXMAIN'",
       'user nginx;',
       'worker_processes auto;',
@@ -252,14 +139,10 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '    include /etc/nginx/conf.d/*.conf;',
       '}',
       'EONGINXMAIN',
-      // Write the VLESS proxy vhost
       "cat > /etc/nginx/conf.d/vless-proxy.conf << 'EONGINX'",
       'server {',
       '    listen 80 default_server;',
       '    server_name _;',
-      '    # Proxy WebSocket connections to the local v2ray VLESS listener.',
-      '    # proxy_read_timeout is set to 24 h so the tunnel is never dropped',
-      '    # by a server-side timeout, which would otherwise cause HTTP 408.',
       '    location /vless-fallback {',
       '        proxy_pass http://127.0.0.1:10000;',
       '        proxy_http_version 1.1;',

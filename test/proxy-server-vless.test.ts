@@ -58,4 +58,14 @@ describe('ProxyServerVlessStack', () => {
     template.hasOutput('VlessUuid', {});
     template.hasOutput('VlessLink', {});
   });
+
+  test('User data renders valid v2ray and nginx config commands', () => {
+    const renderedUserData = stack.instance.userData.render();
+
+    expect(renderedUserData).toContain('cat > /usr/local/etc/v2ray/config.json <<EOCFG');
+    expect(renderedUserData).toContain('"protocol": "vless"');
+    expect(renderedUserData).toContain('cat > /etc/nginx/nginx.conf << \'EONGINXMAIN\'');
+    expect(renderedUserData).toContain('cat > /etc/nginx/conf.d/vless-proxy.conf << \'EONGINX\'');
+    expect(renderedUserData).toContain('proxy_pass http://127.0.0.1:10000;');
+  });
 });
