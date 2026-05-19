@@ -53,16 +53,16 @@ The `VlessLink` output contains the **ready-to-use VLESS URI** you can paste dir
 vless://<UUID>@<PUBLIC_IP>:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback&host=<PUBLIC_IP>#vless-proxy
 ```
 
-> The UUID is generated once at `cdk synth` time and embedded in both the server config and the `VlessLink` output, so no manual UUID lookup is needed.
+> The UUID is derived deterministically from the CDK stack id and a fixed namespace during `cdk synth`, then exposed again as the `VlessUuid` output and embedded in `VlessLink`.
 
 ---
 
 ## Server configuration
 
-The server config template is at [`config/server-config.json`](config/server-config.json). The EC2 user-data script automatically:
+The server config template is at [`config/server-config.json`](config/server-config.json). During deployment, the EC2 user-data script automatically:
 
 1. Installs f2ray via the official install script.
-2. Generates a fresh UUID with `uuidgen`.
+2. Injects the stable UUID that CDK already computed for this stack.
 3. Writes `/usr/local/etc/f2ray/config.json`.
 4. Enables and starts the `f2ray` systemd service.
 
@@ -75,9 +75,9 @@ Copy [`config/client-config.json`](config/client-config.json) to your local clie
 | Placeholder | Replace with |
 |---|---|
 | `YOUR_AWS_EC2_PUBLIC_IP` | The `InstancePublicIp` CDK output |
-| `YOUR_UUID_HERE` | The `VlessUuid` CDK output (also embedded in `VlessLink`) |
+| `YOUR_STABLE_UUID_FROM_CDK_OUTPUT` | The `VlessUuid` CDK output (also embedded in `VlessLink`) |
 
-Or simply use the **`VlessLink`** output directly – it already contains both the UUID and the public IP.
+`YOUR_STABLE_UUID_FROM_CDK_OUTPUT` is only a placeholder in the sample JSON file. CDK does not rewrite `config/client-config.json` on disk; after `cdk deploy`, copy the `VlessUuid` output into that field, or skip the manual edit and use **`VlessLink`** directly since it already contains both the UUID and the public IP.
 
 ---
 
