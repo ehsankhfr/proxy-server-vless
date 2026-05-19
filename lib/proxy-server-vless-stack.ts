@@ -147,7 +147,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'VlessLink', {
-      value: `vless://${uuid}@${this.instance.instancePublicIp}:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback#vless-proxy`,
+      value: `vless://${uuid}@${this.instance.instancePublicIp}:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback&host=${this.instance.instancePublicIp}#vless-proxy`,
       description: 'Ready-to-use VLESS client link – paste into your VLESS client',
     });
   }

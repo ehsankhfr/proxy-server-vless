@@ -50,7 +50,7 @@ After deployment, note the `InstancePublicIp` output – you will need it for th
 The `VlessLink` output contains the **ready-to-use VLESS URI** you can paste directly into any VLESS-compatible client (e.g. v2rayN, v2rayNG, Shadowrocket):
 
 ```
-vless://<UUID>@<PUBLIC_IP>:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback#vless-proxy
+vless://<UUID>@<PUBLIC_IP>:80?encryption=none&security=none&type=ws&path=%2Fvless-fallback&host=<PUBLIC_IP>#vless-proxy
 ```
 
 > The UUID is generated once at `cdk synth` time and embedded in both the server config and the `VlessLink` output, so no manual UUID lookup is needed.
