@@ -19,7 +19,7 @@
             "port": 80,
             "users": [
               {
-                "id": "YOUR_UUID_HERE",
+                "id": "YOUR_STABLE_UUID_FROM_CDK_OUTPUT",
                 "encryption": "none",
                 "level": 0
               }
@@ -34,6 +34,12 @@
           "path": "/vless-fallback",
           "headers": {
             "Host": "YOUR_AWS_EC2_PUBLIC_IP"
+          }
+        }
+      }
+    }
+  ]
+}
           }
         }
       }
