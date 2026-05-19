@@ -1,5 +1,9 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Template, Match } from 'aws-cdk-lib/assertions';
+import { execFileSync } from 'child_process';
+import { mkdtempSync, mkdirSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { ProxyServerVlessStack } from '../lib/proxy-server-vless-stack';
 
 describe('ProxyServerVlessStack', () => {
@@ -68,5 +72,52 @@ describe('ProxyServerVlessStack', () => {
     expect(renderedUserData).toContain('cat > /etc/nginx/nginx.conf << \'EONGINXMAIN\'');
     expect(renderedUserData).toContain('cat > /etc/nginx/conf.d/vless-proxy.conf << \'EONGINX\'');
     expect(renderedUserData).toContain('proxy_pass http://127.0.0.1:10000;');
+  });
+
+  test('User data heredocs preserve nginx variables and expand the runtime UUID', () => {
+    const renderedUserData = stack.instance.userData.render();
+    const tempDir = mkdtempSync(join(tmpdir(), 'proxy-server-vless-'));
+    const v2rayDir = join(tempDir, 'v2ray');
+    const nginxDir = join(tempDir, 'nginx');
+    const runtimeUuid = 'runtime-test-uuid';
+
+    mkdirSync(v2rayDir);
+    mkdirSync(nginxDir);
+
+    const extractBlock = (startMarker: string, endMarker: string): string => {
+      const startIndex = renderedUserData.indexOf(startMarker);
+      const endIndex = renderedUserData.indexOf(`\n${endMarker}`, startIndex);
+
+      expect(startIndex).toBeGreaterThanOrEqual(0);
+      expect(endIndex).toBeGreaterThanOrEqual(0);
+
+      return renderedUserData.slice(startIndex, endIndex + endMarker.length + 1);
+    };
+
+    const v2rayBlock = extractBlock(
+      'cat > /usr/local/etc/v2ray/config.json <<EOCFG',
+      'EOCFG',
+    ).replace('/usr/local/etc/v2ray/config.json', `${v2rayDir}/config.json`);
+
+    const nginxBlock = extractBlock(
+      'cat > /etc/nginx/conf.d/vless-proxy.conf << \'EONGINX\'',
+      'EONGINX',
+    ).replace('/etc/nginx/conf.d/vless-proxy.conf', `${nginxDir}/vless-proxy.conf`);
+
+    execFileSync(
+      'bash',
+      [
+        '-c',
+        [`UUID="${runtimeUuid}"`, v2rayBlock, nginxBlock].join('\n'),
+      ],
+      { cwd: tempDir },
+    );
+
+    expect(readFileSync(join(v2rayDir, 'config.json'), 'utf8')).toContain(
+      `"id": "${runtimeUuid}"`,
+    );
+    expect(readFileSync(join(nginxDir, 'vless-proxy.conf'), 'utf8')).toContain(
+      'proxy_set_header Host $host;',
+    );
   });
 });
