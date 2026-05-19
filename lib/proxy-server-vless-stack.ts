@@ -4,19 +4,19 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
 export class ProxyServerVlessStack extends cdk.Stack {
-  /** The security group attached to the VLESS proxy instance */
   public readonly securityGroup: ec2.SecurityGroup;
-  /** The EC2 instance running the VLESS proxy */
   public readonly instance: ec2.Instance;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Generate the VLESS UUID at synth time so it is known before deployment
-    const uuid = crypto.randomUUID();
+    // OPTION A: Generate a unique UUID linked to this stack instance name so it doesn't change on every deploy.
+    // OPTION B: Replace this with a hardcoded string if you want absolute control: const uuid = "your-fixed-uuid-here";
+    const namespace = '6a131b74-0f2d-4bfb-b6d8-dc2f4044ee78'; // Arbitrary stable namespace
+    const uuid = crypto.createHash('sha1').update(id + namespace).digest('hex').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 
     // ---------------------------------------------------------------------------
-    // VPC – single public subnet, one AZ to minimise cost
+    // VPC – Single public subnet, one AZ to minimize cost
     // ---------------------------------------------------------------------------
     const vpc = new ec2.Vpc(this, 'VlessVpc', {
       maxAzs: 1,
@@ -31,9 +31,104 @@ export class ProxyServerVlessStack extends cdk.Stack {
 
     // ---------------------------------------------------------------------------
     // Security Group
-    // Allow inbound TCP port 80 from anywhere (VLESS plain traffic)
     // ---------------------------------------------------------------------------
     this.securityGroup = new ec2.SecurityGroup(this, 'VlessSecurityGroup', {
+      vpc,
+      securityGroupName: 'vless-proxy-sg',
+      description: 'Security group for VLESS proxy server - allows inbound HTTP (port 80)',
+      allowAllOutbound: true,
+    });
+
+    this.securityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(80),
+      'Allow inbound VLESS plain traffic on port 80',
+    );
+
+    this.securityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(22),
+      'Allow inbound SSH',
+    );
+
+    // ---------------------------------------------------------------------------
+    // User-data script
+    // ---------------------------------------------------------------------------
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      'set -euxo pipefail',
+      
+      // Robust retry logic for network-dependent commands
+      'retry() {',
+      '  local attempts=0',
+      '  local max_attempts=5',
+      '  local wait_seconds=6',
+      '  while true; do',
+      '    "$@" && break',
+      '    attempts=$((attempts + 1))',
+      '    if [ "$attempts" -ge "$max_attempts" ]; then',
+      '      echo "Command failed after $max_attempts attempts: $*"',
+      '      return 1',
+      '    fi',
+      '    sleep "$wait_seconds"',
+      '  done',
+      '}',
+
+      // 1. Install prerequisites and Nginx first to ensure package repositories are ready
+      'retry dnf update -y',
+      'retry dnf install -y nginx curl tar jq',
+
+      // 2. Install v2ray using the official fhs-install-v2ray script
+      'retry curl -fLsS https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh -o /tmp/install-v2ray.sh',
+      'retry bash /tmp/install-v2ray.sh',
+
+      `UUID="${uuid}"`,
+      'mkdir -p /usr/local/etc/v2ray /var/log/v2ray',
+
+      // 3. Write Server v2ray configuration
+      'cat > /usr/local/etc/v2ray/config.json <<EOCFG',
+      '{',
+      '  "log": {',
+      '    "access": "/var/log/v2ray/access.log",',
+      '    "error": "/var/log/v2ray/error.log",',
+      '    "loglevel": "warning"',
+      '  },',
+      '  "inbounds": [',
+      {
+        "port": 10000,
+        "listen": "127.0.0.1",
+        "protocol": "vless",
+        "settings": {
+          "clients": [
+            {
+              "id": "'"$UUID"'",
+              "level": 0
+            }
+          ],
+          "decryption": "none"
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/vless-fallback"
+          }
+        }
+      },
+      '  ],',
+      '  "outbounds": [',
+      '    {',
+      '      "protocol": "freedom",',
+      '      "settings": {}',
+      '    }',
+      '  ]',
+      '}',
+      'EOCFG',
+
+      'systemctl enable v2ray',
+      'systemctl restart v2ray',
+
+      // 4. Write clean global Nginx configuration
+      "cat > /etc/nginx/nginx.
       vpc,
       securityGroupName: 'vless-proxy-sg',
       description: 'Security group for VLESS proxy server - allows inbound HTTP (port 80)',

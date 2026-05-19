@@ -12,7 +12,7 @@
       "settings": {
         "clients": [
           {
-            "id": "YOUR_UUID_HERE",
+            "id": "YOUR_STABLE_UUID_FROM_CDK_OUTPUT",
             "level": 0
           }
         ],
