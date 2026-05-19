@@ -5,6 +5,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "test:integration": "bash scripts/integration-test.sh",
     "cdk": "cdk"
   },
   "devDependencies": {
