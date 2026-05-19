@@ -64,6 +64,7 @@ describe('ProxyServerVlessStack', () => {
 
     expect(renderedUserData).toContain('cat > /usr/local/etc/v2ray/config.json <<EOCFG');
     expect(renderedUserData).toContain('"protocol": "vless"');
+    expect(renderedUserData).toContain('"id": "$UUID"');
     expect(renderedUserData).toContain('cat > /etc/nginx/nginx.conf << \'EONGINXMAIN\'');
     expect(renderedUserData).toContain('cat > /etc/nginx/conf.d/vless-proxy.conf << \'EONGINX\'');
     expect(renderedUserData).toContain('proxy_pass http://127.0.0.1:10000;');

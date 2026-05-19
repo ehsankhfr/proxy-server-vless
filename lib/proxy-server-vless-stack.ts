@@ -96,7 +96,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '      "settings": {',
       '        "clients": [',
       '          {',
-      `            "id": "${uuid}",`,
+      '            "id": "$UUID",',
       '            "level": 0',
       '          }',
       '        ],',
