@@ -1,12 +1,13 @@
 {
   "log": {
-    "access": "/var/log/f2ray/access.log",
-    "error": "/var/log/f2ray/error.log",
+    "access": "/var/log/v2ray/access.log",
+    "error": "/var/log/v2ray/error.log",
     "loglevel": "warning"
   },
   "inbounds": [
     {
-      "port": 80,
+      "port": 10000,
+      "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
         "clients": [

@@ -55,25 +55,29 @@ export class ProxyServerVlessStack extends cdk.Stack {
     );
 
     // ---------------------------------------------------------------------------
-    // User-data script – installs f2ray and writes the server config
+    // User-data script – installs v2ray behind nginx and writes the server config
     // ---------------------------------------------------------------------------
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
-      // Install f2ray using the official script
-      'bash <(curl -L https://raw.githubusercontent.com/v2fly/f2ray-core/master/release/install-release.sh)',
+      // Install v2ray using the official fhs-install-v2ray script
+      'bash <(curl -L https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh)',
       // Use the UUID that was generated at CDK synth time
       `UUID="${uuid}"`,
-      'mkdir -p /usr/local/etc/f2ray /var/log/f2ray',
-      'cat > /usr/local/etc/f2ray/config.json <<EOCFG',
+      'mkdir -p /usr/local/etc/v2ray /var/log/v2ray',
+      // v2ray listens on localhost:10000 so that nginx is the only public-facing
+      // listener on port 80; this avoids direct exposure and allows nginx to set
+      // proper WebSocket timeouts (proxy_read_timeout) to prevent 408 errors.
+      'cat > /usr/local/etc/v2ray/config.json <<EOCFG',
       '{',
       '  "log": {',
-      '    "access": "/var/log/f2ray/access.log",',
-      '    "error": "/var/log/f2ray/error.log",',
+      '    "access": "/var/log/v2ray/access.log",',
+      '    "error": "/var/log/v2ray/error.log",',
       '    "loglevel": "warning"',
       '  },',
       '  "inbounds": [',
       '    {',
-      '      "port": 80,',
+      '      "port": 10000,',
+      '      "listen": "127.0.0.1",',
       '      "protocol": "vless",',
       '      "settings": {',
       '        "clients": [',
@@ -102,9 +106,66 @@ export class ProxyServerVlessStack extends cdk.Stack {
       'EOCFG',
       // Print the UUID so it is visible in the EC2 instance system log
       `echo "VLESS UUID: ${uuid}"`,
-      // Enable and start the f2ray service
-      'systemctl enable f2ray',
-      'systemctl restart f2ray',
+      // Enable and start the v2ray service
+      'systemctl enable v2ray',
+      'systemctl restart v2ray || { journalctl -u v2ray -n 50; exit 1; }',
+      // ---------------------------------------------------------------------------
+      // Install nginx as a WebSocket reverse proxy in front of v2ray.
+      // nginx handles the HTTP upgrade and sets proxy_read_timeout to 24 h so that
+      // long-lived WebSocket tunnels are never timed out by the server (eliminates
+      // the HTTP 408 Request Timeout that occurs when no timeout is configured).
+      // The 24 h value balances keeping tunnels alive against the risk of
+      // accumulating idle connections; adjust downward if resource usage is a concern.
+      // ---------------------------------------------------------------------------
+      'dnf install -y nginx || { echo "nginx install failed"; exit 1; }',
+      // Write a minimal main config that delegates server blocks to conf.d only,
+      // preventing the built-in default server from competing on port 80.
+      "cat > /etc/nginx/nginx.conf << 'EONGINXMAIN'",
+      'user nginx;',
+      'worker_processes auto;',
+      'error_log /var/log/nginx/error.log;',
+      'pid /run/nginx.pid;',
+      'include /usr/share/nginx/modules/*.conf;',
+      'events {',
+      '    worker_connections 1024;',
+      '}',
+      'http {',
+      '    log_format main \'$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent\';',
+      '    access_log /var/log/nginx/access.log main;',
+      '    sendfile on;',
+      '    keepalive_timeout 65;',
+      '    include /etc/nginx/mime.types;',
+      '    default_type application/octet-stream;',
+      '    include /etc/nginx/conf.d/*.conf;',
+      '}',
+      'EONGINXMAIN',
+      // Write the VLESS proxy vhost
+      "cat > /etc/nginx/conf.d/vless-proxy.conf << 'EONGINX'",
+      'server {',
+      '    listen 80 default_server;',
+      '    server_name _;',
+      '    # Proxy WebSocket connections to the local v2ray VLESS listener.',
+      '    # proxy_read_timeout is set to 24 h so the tunnel is never dropped',
+      '    # by a server-side timeout, which would otherwise cause HTTP 408.',
+      '    location /vless-fallback {',
+      '        proxy_pass http://127.0.0.1:10000;',
+      '        proxy_http_version 1.1;',
+      '        proxy_set_header Upgrade $http_upgrade;',
+      '        proxy_set_header Connection "upgrade";',
+      '        proxy_set_header Host $host;',
+      '        proxy_set_header X-Real-IP $remote_addr;',
+      '        proxy_connect_timeout 60s;',
+      '        proxy_read_timeout 86400s;',
+      '        proxy_send_timeout 86400s;',
+      '    }',
+      '    location / {',
+      '        return 200 "OK";',
+      '        add_header Content-Type text/plain;',
+      '    }',
+      '}',
+      'EONGINX',
+      'systemctl enable nginx',
+      'systemctl restart nginx || { journalctl -u nginx -n 50; exit 1; }',
     );
 
     // ---------------------------------------------------------------------------
