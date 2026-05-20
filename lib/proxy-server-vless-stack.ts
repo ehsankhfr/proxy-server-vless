@@ -76,7 +76,7 @@ export class ProxyServerVlessStack extends cdk.Stack {
       '  done',
       '}',
       'retry dnf update -y',
-      'retry dnf install -y nginx curl tar jq',
+      'retry dnf install -y nginx curl-minimal tar jq',
       'retry curl -fLsS https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh -o /tmp/install-v2ray.sh',
       'retry bash /tmp/install-v2ray.sh',
       `UUID="${uuid}"`,
